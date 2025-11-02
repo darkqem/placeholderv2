@@ -5,12 +5,13 @@ public class WeaponController : MonoBehaviour
 {
     public GameObject weaponModel;  // Модель оружия
     public Transform shootPoint;    // Точка выстрела (например, перед стволом)
-    public GameObject bulletPrefab; // Префаб пули
-    public float fireRate = 1f;  // Частота выстрелов (время между выстрелами)
-    public int maxAmmo = 6;       // Максимальное количество патронов в обойме
-    private int currentAmmo;       // Текущее количество патронов
-    private bool canFire = true;   // Можно ли стрелять (для контроля спам-лока)
+    public float fireRate = 1f;     // Частота выстрелов (время между выстрелами)
+    public int maxAmmo = 6;         // Максимальное количество патронов в обойме
+    private int currentAmmo;        // Текущее количество патронов
+    private bool canFire = true;    // Можно ли стрелять (для контроля спам-лока)
     private bool isReloading = false; // Перезарядка
+
+    public float rayDistance = 100f; // Дистанция, на которой луч будет искать столкновения
 
     void Start()
     {
@@ -42,9 +43,20 @@ public class WeaponController : MonoBehaviour
         canFire = false;
         currentAmmo--;  // Уменьшаем количество патронов
 
-        // Создаем пулю в точке выстрела
-        GameObject bullet = Instantiate(bulletPrefab, shootPoint.position, shootPoint.rotation);
-        Destroy(bullet, 2f);  // Пуля исчезает через 2 секунды
+        // Выстрел через Raycast
+        RaycastHit hit;
+        if (Physics.Raycast(shootPoint.position, shootPoint.forward, out hit, rayDistance))
+        {
+            // Выводим информацию о столкновении в консоль
+            Debug.Log("Выстрел достиг поверхности: " + hit.collider.name);
+
+            // Если луч попал, можно добавлять логику для урона или эффекта попадания
+            // Например, можно создать вспышку, изменить материал или отобразить урон на объекте
+        }
+        else
+        {
+            Debug.Log("Выстрел не попал в цель.");
+        }
 
         // Включаем задержку между выстрелами
         Invoke("ResetFire", fireRate);

@@ -365,6 +365,8 @@
 "Assets/Scripts/Inventory/Inventory.cs"
 "Assets/Scripts/Inventory/Item.cs"
 "Assets/Scripts/Inventory/PickupItem.cs"
+"Assets/Scripts/MouseLook.cs"
+"Assets/Scripts/PlayerMovement.cs"
 "Assets/Scripts/Weapon/Bullet.cs"
 "Assets/Scripts/Weapon/WeaponController.cs"
 "Assets/TutorialInfo/Scripts/Readme.cs"
