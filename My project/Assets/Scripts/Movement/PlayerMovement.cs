@@ -70,25 +70,6 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // Check if input is blocked (e.g., during dialogue)
-        bool isBlocked = Systems.DialogueInputBlocker.IsInputBlocked;
-        if (isBlocked)
-        {
-            // Stop movement immediately
-            currentVelocity = Vector3.zero;
-            velocity.y = 0f;
-            if (controller != null)
-            {
-                controller.Move(Vector3.zero);
-            }
-            // Debug log every 60 frames to avoid spam
-            if (Time.frameCount % 60 == 0)
-            {
-                Debug.Log("[PlayerMovement] Input is BLOCKED - movement stopped.");
-            }
-            return;
-        }
-
         GroundCheck();
 
         HandleCrouchInput();
@@ -169,11 +150,16 @@ public class PlayerMovement : MonoBehaviour
 
         if (ctrlHeld && !isCrouching && isGrounded)
         {
+            animator.SetBool("IsCrouch", true);
             StartCrouch();
+            
         }
         else if (!ctrlHeld && isCrouching)
         {
+            if (CanStandUp())
+                animator.SetBool("IsCrouch", false);
                 EndCrouch();
+                
         }
     }
 
@@ -202,6 +188,17 @@ public class PlayerMovement : MonoBehaviour
 
         transform.position = positionBeforeChange;
         targetCameraHeight = cameraStandHeight;
+    }
+
+    bool CanStandUp()
+    {
+        // Check for headroom above the controller
+        Vector3 bottom = transform.position + controller.center + Vector3.down * (controller.height / 2f) + Vector3.up * controller.skinWidth;
+        float radius = controller.radius * 0.95f;
+        float castDistance = (originalHeight - controller.height);
+        if (castDistance <= 0f) return true;
+
+        return !Physics.SphereCast(bottom, radius, Vector3.up, out _, castDistance, ~0, QueryTriggerInteraction.Ignore);
     }
 
     void HandleHorizontalMovement(Vector3 moveDirection, float targetSpeed)
