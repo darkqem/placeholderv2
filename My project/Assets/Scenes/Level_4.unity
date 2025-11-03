@@ -1062,12 +1062,12 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: 1b074dcf2363fa04dbca6944c99e0b5b,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: -357.46
+      value: -357.27
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1b074dcf2363fa04dbca6944c99e0b5b,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 96.86
+      value: 97.28
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1b074dcf2363fa04dbca6944c99e0b5b,
         type: 3}
@@ -1135,6 +1135,10 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1901330212}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1b074dcf2363fa04dbca6944c99e0b5b,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1901330214}
   m_SourcePrefab: {fileID: 100100000, guid: 1b074dcf2363fa04dbca6944c99e0b5b, type: 3}
 --- !u!4 &1901330211 stripped
 Transform:
@@ -1161,7 +1165,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Size: {x: 0.51, y: 0.92, z: 3.9}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!54 &1901330213
 Rigidbody:
@@ -1190,6 +1194,22 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &1901330214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 160370839}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d7140abfb8ad7244947aa2759c770ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  itemName: "\u043A\u043E\u043B\u044C\u0442"
+  itemIcon: {fileID: 0}
+  interactionType: 0
+  holdDuration: 0
 --- !u!1 &1961038629 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 066e4c43c6df1ce41aef0f21e5c08b62,
@@ -14440,6 +14460,7 @@ MonoBehaviour:
   rayDistance: 100
   hitEffect: {fileID: 0}
   hitSound: {fileID: 0}
+  requireColtInInventory: 1
 --- !u!23 &4859468156538871939
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -14651,7 +14672,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a5f4e296b4cd19249a7a7318d8dadd10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  walkSpeed: 4
+  walkSpeed: 27.58
   runSpeed: 8
   crouchSpeedMultiplier: 0.5
   gravity: -20
@@ -19374,7 +19395,7 @@ Transform:
   m_GameObject: {fileID: 6211294723134346184}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -164.54, y: 103.4, z: 30.5}
+  m_LocalPosition: {x: -330.44, y: 103.4, z: 77.96}
   m_LocalScale: {x: 2.29, y: 2.29, z: 2.29}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -21340,6 +21361,9 @@ MonoBehaviour:
   interactionRange: 3
   interactKey: 101
   dragDistance: 2
+  interactionLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &8015646889009094894
 GameObject:
   m_ObjectHideFlags: 0

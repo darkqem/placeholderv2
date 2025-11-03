@@ -12,4 +12,20 @@ public class Inventory : MonoBehaviour
         inventoryItems.Add(item.GetItemData());
         Debug.Log($"Предмет {item.itemName} добавлен в инвентарь.");
     }
+
+    /// <summary>
+    /// Проверяет, есть ли предмет с указанным именем в инвентаре
+    /// </summary>
+    public bool HasItem(string itemName)
+    {
+        return inventoryItems.Exists(item => item.itemName == itemName);
+    }
+
+    /// <summary>
+    /// Проверяет, есть ли кольт в инвентаре
+    /// </summary>
+    public bool HasColt()
+    {
+        return HasItem("кольт") || HasItem("Кольт") || HasItem("colt") || HasItem("Colt");
+    }
 }

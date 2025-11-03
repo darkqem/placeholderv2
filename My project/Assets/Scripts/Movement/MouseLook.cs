@@ -10,6 +10,7 @@ public class MouseLook : MonoBehaviour
     public float maxPitch = 90f;
 
     private float xRotation = 0f;
+    private bool mouseMovedEventTriggered = false; // Флаг для однократного срабатывания события
 
     void Start()
     {
@@ -34,10 +35,31 @@ public class MouseLook : MonoBehaviour
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 
+        // Проверяем, было ли движение мыши (только один раз)
+        bool mouseMoved = Mathf.Abs(mouseX) > 0.001f || Mathf.Abs(mouseY) > 0.001f;
+
+        if (mouseMoved && !mouseMovedEventTriggered)
+        {
+            // Триггерим событие движения мыши (только один раз)
+            if (Systems.EventManager.Instance != null)
+            {
+                Systems.EventManager.Instance.TriggerMouseMoved();
+                mouseMovedEventTriggered = true;
+            }
+        }
+
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, minPitch, maxPitch);
 
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
         playerBody.Rotate(Vector3.up * mouseX);
+    }
+
+    /// <summary>
+    /// Сброс флага события движения мыши (можно вызвать извне при необходимости)
+    /// </summary>
+    public void ResetMouseMovedEvent()
+    {
+        mouseMovedEventTriggered = false;
     }
 }

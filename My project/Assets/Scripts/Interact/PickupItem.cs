@@ -5,6 +5,7 @@ public class PickupItem : MonoBehaviour
     public float interactionRange = 3f;
     public KeyCode interactKey = KeyCode.E;
     public float dragDistance = 2f; // Дистанция перед игроком для перетаскиваемого предмета
+    public LayerMask interactionLayerMask = -1; // По умолчанию все слои
 
     private Inventory playerInventory;
     private Camera playerCamera;
@@ -14,7 +15,6 @@ public class PickupItem : MonoBehaviour
     private bool isHolding = false;
     private float holdTimer = 0f;
     private Vector3 originalItemPosition;
-    private Quaternion originalItemRotation;
     private Transform originalItemParent;
 
     void Start()
@@ -25,6 +25,18 @@ public class PickupItem : MonoBehaviour
 
     void Update()
     {
+        // Check if input is blocked (e.g., during dialogue)
+        if (Systems.DialogueInputBlocker.IsInputBlocked)
+        {
+            // Сбрасываем цель, если ввод заблокирован
+            if (currentTargetItem != null)
+            {
+                currentTargetItem = null;
+                ResetHoldInteraction();
+            }
+            return; // Don't process interaction when input is blocked
+        }
+
         HandleRaycast();
         HandleHoldInteraction();
         HandleDragRelease();
@@ -35,29 +47,149 @@ public class PickupItem : MonoBehaviour
         // Если уже перетаскиваем предмет, не проверяем новые цели
         if (currentlyDraggedItem != null) return;
 
-        RaycastHit hit;
-        if (Physics.Raycast(playerCamera.transform.position, playerCamera.transform.forward, out hit, interactionRange))
+        // Проверка наличия камеры
+        if (playerCamera == null)
         {
-            Item item = hit.collider.GetComponent<Item>();
+            return;
+        }
 
-            if (item != null && item != currentTargetItem)
+        Vector3 rayOrigin = playerCamera.transform.position;
+        Vector3 rayDirection = playerCamera.transform.forward;
+
+        // Сначала пытаемся найти предмет через raycast
+        RaycastHit hit;
+        bool hitSomething = Physics.Raycast(rayOrigin, rayDirection, out hit, interactionRange, interactionLayerMask);
+        
+        Item foundItem = null;
+        
+        if (hitSomething)
+        {
+            // Ищем Item компонент на объекте или в родительских объектах
+            foundItem = hit.collider.GetComponent<Item>();
+            if (foundItem == null)
             {
-                currentTargetItem = item;
-                Debug.Log($"Обнаружен предмет: {item.itemName} (Тип: {item.interactionType})");
-
-                if (item.interactionType == InteractionType.Pickup)
+                foundItem = hit.collider.GetComponentInParent<Item>();
+            }
+        }
+        
+        // Если raycast не нашел предмет, пробуем найти через OverlapSphere и прямой поиск всех Item компонентов
+        if (foundItem == null)
+        {
+            // Метод 1: Поиск через OverlapSphere (по коллайдерам)
+            Collider[] nearbyColliders = Physics.OverlapSphere(rayOrigin, interactionRange, interactionLayerMask);
+            
+            Item closestItem = null;
+            float closestDistance = float.MaxValue;
+            
+            // Сначала проверяем найденные коллайдеры
+            foreach (Collider col in nearbyColliders)
+            {
+                // Пропускаем коллайдеры игрока
+                bool isPlayerCollider = (col.transform == transform || col.transform.IsChildOf(transform));
+                if (isPlayerCollider)
                 {
-                    Debug.Log("Нажмите E чтобы подобрать: " + item.itemName);
+                    continue;
                 }
-                else
+                
+                // Ищем Item на объекте, в родительских и дочерних объектах
+                Item item = col.GetComponent<Item>();
+                if (item == null)
                 {
-                    Debug.Log($"Удерживайте E ({item.holdDuration}сек) для: {item.itemName}");
+                    item = col.GetComponentInParent<Item>();
                 }
+                if (item == null)
+                {
+                    item = col.GetComponentInChildren<Item>();
+                }
+                
+                if (item != null)
+                {
+                    Vector3 itemPosition = item.transform.position;
+                    Vector3 directionToItem = (itemPosition - rayOrigin).normalized;
+                    float distance = Vector3.Distance(rayOrigin, itemPosition);
+                    float angle = Vector3.Angle(rayDirection, directionToItem);
+                    
+                    // Выбираем предмет, который ближе всего к направлению взгляда и находится в пределах угла
+                    if (angle < 90f && distance < closestDistance)
+                    {
+                        closestItem = item;
+                        closestDistance = distance;
+                    }
+                }
+            }
+            
+            // Метод 2: Прямой поиск всех Item компонентов в сцене (если первый метод не сработал)
+            if (closestItem == null)
+            {
+                Item[] allItems = FindObjectsOfType<Item>();
+                
+                foreach (Item item in allItems)
+                {
+                    // Пропускаем предметы игрока
+                    bool isPlayerItem = (item.transform == transform || item.transform.IsChildOf(transform));
+                    if (isPlayerItem)
+                    {
+                        continue;
+                    }
+                    
+                    Vector3 itemPosition = item.transform.position;
+                    float distance = Vector3.Distance(rayOrigin, itemPosition);
+                    Vector3 directionToItem = (itemPosition - rayOrigin).normalized;
+                    float angle = Vector3.Angle(rayDirection, directionToItem);
+                    
+                    // Проверяем только угол обзора - если предмет виден, выбираем его независимо от расстояния
+                    if (angle >= 90f)
+                    {
+                        continue;
+                    }
+                    
+                    // Выбираем ближайший видимый предмет
+                    // Приоритет предметам в пределах interactionRange, но если таких нет - выбираем ближайший видимый
+                    bool isInRange = distance <= interactionRange;
+                    bool isBetterChoice = false;
+                    
+                    if (closestItem == null)
+                    {
+                        isBetterChoice = true;
+                    }
+                    else if (isInRange && closestDistance > interactionRange)
+                    {
+                        // Предмет в радиусе, а текущий выбранный - нет
+                        isBetterChoice = true;
+                    }
+                    else if (distance < closestDistance)
+                    {
+                        // Ближе, чем текущий выбранный
+                        isBetterChoice = true;
+                    }
+                    
+                    if (isBetterChoice)
+                    {
+                        closestItem = item;
+                        closestDistance = distance;
+                    }
+                }
+            }
+            
+            if (closestItem != null)
+            {
+                foundItem = closestItem;
+            }
+        }
+        
+        // Обновляем текущий предмет
+        if (foundItem != null)
+        {
+            // Если это новый предмет, обновляем цель
+            if (foundItem != currentTargetItem)
+            {
+                currentTargetItem = foundItem;
             }
         }
         else
         {
-            if (currentTargetItem != null)
+            // Не нашли предмет - сбрасываем цель только если уже не держим
+            if (currentTargetItem != null && !isHolding)
             {
                 ResetHoldInteraction();
                 currentTargetItem = null;
@@ -67,11 +199,28 @@ public class PickupItem : MonoBehaviour
 
     void HandleHoldInteraction()
     {
-        if (currentTargetItem == null) return;
+        if (currentTargetItem == null)
+        {
+            return;
+        }
 
         // Начало удержания
         if (Input.GetKeyDown(interactKey) && !isHolding)
         {
+            // Проверяем расстояние до предмета перед взаимодействием
+            if (playerCamera != null)
+            {
+                float distanceToItem = Vector3.Distance(playerCamera.transform.position, currentTargetItem.transform.position);
+                float maxInteractionDistance = currentTargetItem.interactionType == InteractionType.Pickup 
+                    ? 10f  // Для предметов Pickup разрешаем взаимодействие до 10 метров
+                    : interactionRange * 1.5f; // Для дверей и Draggable - 1.5x от радиуса
+                
+                if (distanceToItem > maxInteractionDistance)
+                {
+                    return;
+                }
+            }
+            
             if (currentTargetItem.interactionType == InteractionType.Pickup)
             {
                 // Мгновенное взаимодействие для подбираемых предметов
@@ -121,13 +270,10 @@ public class PickupItem : MonoBehaviour
     {
         isHolding = true;
         holdTimer = 0f;
-        Debug.Log($"Начато удержание E для: {currentTargetItem.itemName}");
     }
 
     void CompleteHoldInteraction()
     {
-        Debug.Log($"Удержание завершено для: {currentTargetItem.itemName}");
-
         switch (currentTargetItem.interactionType)
         {
             case InteractionType.Door:
@@ -145,23 +291,40 @@ public class PickupItem : MonoBehaviour
     {
         isHolding = false;
         holdTimer = 0f;
-
-        if (currentTargetItem != null && currentTargetItem.interactionType != InteractionType.Pickup && currentlyDraggedItem == null)
-        {
-            Debug.Log("Удержание прервано");
-        }
     }
 
     void PickupCurrentItem()
     {
+        if (currentTargetItem == null || playerInventory == null)
+        {
+            return;
+        }
+        
+        string itemName = currentTargetItem.itemName;
+        
+        // Добавляем в инвентарь
         playerInventory.AddItem(currentTargetItem);
-        Destroy(currentTargetItem.gameObject);
-        currentTargetItem = null;
+        
+        // Триггерим событие о подборе предмета
+        if (Systems.EventManager.Instance != null)
+        {
+            Systems.EventManager.Instance.TriggerObjectPickedUp(itemName);
+        }
+        
+        // Уничтожаем предмет
+        GameObject itemObject = currentTargetItem.gameObject;
+        currentTargetItem = null; // Очищаем ссылку перед уничтожением
+        Destroy(itemObject);
     }
 
     void OpenDoor()
     {
-        Debug.Log($"Дверь '{currentTargetItem.itemName}' открыта!");
+        // Триггерим событие об открытии двери
+        if (Systems.EventManager.Instance != null)
+        {
+            Systems.EventManager.Instance.TriggerDoorOpened();
+        }
+        
         // Здесь можно добавить анимацию открытия двери
         Destroy(currentTargetItem.gameObject); // или деактивировать дверь
         currentTargetItem = null;
@@ -169,12 +332,16 @@ public class PickupItem : MonoBehaviour
 
     void StartDraggingItem()
     {
+        if (playerCamera == null)
+        {
+            return;
+        }
+        
         currentlyDraggedItem = currentTargetItem;
         currentTargetItem = null;
 
         // Сохраняем оригинальные параметры предмета
         originalItemPosition = currentlyDraggedItem.transform.position;
-        originalItemRotation = currentlyDraggedItem.transform.rotation;
         originalItemParent = currentlyDraggedItem.transform.parent;
 
         // Делаем предмет дочерним объектом камеры
@@ -194,13 +361,11 @@ public class PickupItem : MonoBehaviour
         {
             collider.enabled = false;
         }
-
-        Debug.Log($"Начато перетаскивание: {currentlyDraggedItem.itemName}. Отпустите E чтобы бросить.");
     }
 
     void UpdateDraggedItemPosition()
     {
-        if (currentlyDraggedItem == null) return;
+        if (currentlyDraggedItem == null || playerCamera == null) return;
 
         // Позиция предмета перед игроком
         Vector3 targetPosition = playerCamera.transform.position + playerCamera.transform.forward * dragDistance;
@@ -210,9 +375,7 @@ public class PickupItem : MonoBehaviour
 
     void ReleaseDraggedItem()
     {
-        if (currentlyDraggedItem == null) return;
-
-        Debug.Log($"Предмет {currentlyDraggedItem.itemName} брошен.");
+        if (currentlyDraggedItem == null || playerCamera == null) return;
 
         // Возвращаем оригинальный parent или оставляем в мире
         currentlyDraggedItem.transform.SetParent(originalItemParent);
