@@ -13779,19 +13779,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   walkSpeed: 4
   runSpeed: 8
-  slideSpeed: 10
   gravity: -20
   jumpHeight: 1.6
   acceleration: 50
   deceleration: 60
   airControl: 0.3
-  slideDuration: 0.7
-  slideHeight: 1
-  standHeight: 2
-  slideCooldown: 1
   cameraTransform: {fileID: 5479548304459459605}
   cameraStandHeight: 8
-  cameraSlideHeight: 0.8
   cameraTransitionSpeed: 5
   groundMask:
     serializedVersion: 2
