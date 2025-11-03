@@ -374,6 +374,7 @@
 "Assets/Scripts/NPC/PlayerController.cs"
 "Assets/Scripts/NPC/StandingNPCController.cs"
 "Assets/Scripts/System/AudioManager.cs"
+"Assets/Scripts/System/DialogueInputBlocker.cs"
 "Assets/Scripts/System/DialogueManager.cs"
 "Assets/Scripts/System/DialogueTypes.cs"
 "Assets/Scripts/System/DialogueUIBinder.cs"
