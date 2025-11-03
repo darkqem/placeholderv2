@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -11,22 +10,24 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = -20f;
     public float jumpHeight = 1.6f;
 
+    
+
     [Header("Movement Settings")]
-    public float acceleration = 50f;        // ускорение
-    public float deceleration = 60f;        // замедление
-    public float airControl = 0.3f;         // контроль в воздухе
+    public float acceleration = 50f;        // РЈСЃРєРѕСЂРµРЅРёРµ
+    public float deceleration = 60f;        // Р—Р°РјРµРґР»РµРЅРёРµ
+    public float airControl = 0.3f;         // РљРѕРЅС‚СЂРѕР»СЊ РІ РІРѕР·РґСѓС…Рµ
 
     [Header("Slide Settings")]
-    public float slideDuration = 0.7f;      // время скольжения
-    public float slideHeight = 1.0f;        // высота при приседе
-    public float standHeight = 2.0f;        // нормальная высота
-    public float slideCooldown = 1.0f;      // перерыв между слайдами
+    public float slideDuration = 0.7f;      // Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ СЃР»Р°Р№РґР°
+    public float slideHeight = 1.0f;        // Р’С‹СЃРѕС‚Р° РїСЂРё СЃР»Р°Р№РґРµ
+    public float standHeight = 2.0f;        // РЎС‚Р°РЅРґР°СЂС‚РЅР°СЏ РІС‹СЃРѕС‚Р°
+    public float slideCooldown = 1.0f;      // РљСѓР»РґР°СѓРЅ СЃР»Р°Р№РґР°
 
     [Header("Camera Settings")]
-    public Transform cameraTransform;       // ссылка на трансформ камеры
-    public float cameraStandHeight = 1.6f;  // высота камеры в стоячем положении
-    public float cameraSlideHeight = 0.8f;  // высота камеры при слайде
-    public float cameraTransitionSpeed = 5f; // скорость изменения высоты камеры
+    public Transform cameraTransform;       // РљР°РјРµСЂР°
+    public float cameraStandHeight = 1.6f;  // Р’С‹СЃРѕС‚Р° РєР°РјРµСЂС‹ РІ СЃС‚РѕСЏС‡РµРј РїРѕР»РѕР¶РµРЅРёРё
+    public float cameraSlideHeight = 0.8f;  // Р’С‹СЃРѕС‚Р° РєР°РјРµСЂС‹ РїСЂРё СЃР»Р°Р№РґРµ
+    public float cameraTransitionSpeed = 5f; // РЎРєРѕСЂРѕСЃС‚СЊ РїРµСЂРµС…РѕРґР° РєР°РјРµСЂС‹
 
     [Header("Ground Check")]
     public LayerMask groundMask;
@@ -34,39 +35,38 @@ public class PlayerMovement : MonoBehaviour
 
     private CharacterController controller;
     private Vector3 velocity;
-    private Vector3 currentVelocity;        // текущая горизонтальная скорость
+    private Vector3 currentVelocity;        // РўРµРєСѓС‰Р°СЏ СЃРєРѕСЂРѕСЃС‚СЊ
     private bool isGrounded;
     private bool isSliding = false;
     private float slideTimer = 0f;
     private float slideCooldownTimer = 0f;
 
-    // Добавляем переменные для отслеживания исходной позиции
     private Vector3 originalCenter;
     private float originalHeight;
     private float targetCameraHeight;
     private float currentCameraHeight;
 
+    public Animator animator;  // РЎСЃС‹Р»РєР° РЅР° Animator
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        animator = GetComponent<Animator>();  // РџРѕР»СѓС‡Р°РµРј РєРѕРјРїРѕРЅРµРЅС‚ Animator
+
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        // Сохраняем исходные параметры контроллера
         originalHeight = controller.height;
         originalCenter = controller.center;
 
-        // Инициализируем высоту камеры
         if (cameraTransform == null)
         {
-            // Автоматически находим камеру, если не назначена
             cameraTransform = GetComponentInChildren<Camera>().transform;
         }
 
         targetCameraHeight = cameraStandHeight;
         currentCameraHeight = cameraStandHeight;
 
-        // Устанавливаем начальную позицию камеры
         Vector3 cameraLocalPos = cameraTransform.localPosition;
         cameraLocalPos.y = currentCameraHeight;
         cameraTransform.localPosition = cameraLocalPos;
@@ -76,7 +76,6 @@ public class PlayerMovement : MonoBehaviour
     {
         GroundCheck();
 
-        // Обновляем таймер кулдауна слайда
         if (slideCooldownTimer > 0f)
             slideCooldownTimer -= Time.deltaTime;
 
@@ -85,13 +84,11 @@ public class PlayerMovement : MonoBehaviour
         else
             NormalMove();
 
-        // Обновляем позицию камеры
         UpdateCameraHeight();
     }
 
     void UpdateCameraHeight()
     {
-        // Плавно изменяем высоту камеры
         currentCameraHeight = Mathf.Lerp(currentCameraHeight, targetCameraHeight, cameraTransitionSpeed * Time.deltaTime);
 
         Vector3 cameraLocalPos = cameraTransform.localPosition;
@@ -101,10 +98,14 @@ public class PlayerMovement : MonoBehaviour
 
     void GroundCheck()
     {
+        
+
         isGrounded = controller.isGrounded;
         if (isGrounded && velocity.y < 0f)
         {
+            Debug.Log("С…СѓР№2");
             velocity.y = -2f;
+            animator.SetBool("IsJumping", false);
         }
     }
 
@@ -113,30 +114,29 @@ public class PlayerMovement : MonoBehaviour
         float inputX = Input.GetAxis("Horizontal");
         float inputZ = Input.GetAxis("Vertical");
 
-        // Получаем направление движения относительно камеры
         Vector3 moveDirection = (transform.right * inputX + transform.forward * inputZ).normalized;
 
         bool isRunning = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        float targetSpeed = isRunning ? runSpeed : walkSpeed;
 
-        // Обрабатываем горизонтальное движение с ускорением/замедлением
+        float targetSpeed = isRunning ? runSpeed : walkSpeed;
+        float moveSpeed = moveDirection.magnitude * targetSpeed;
+        animator.SetFloat("Speed", moveSpeed);
+
         HandleHorizontalMovement(moveDirection, targetSpeed);
 
-        // Прыжок
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            animator.SetBool("IsJumping", true);  // Р’РєР»СЋС‡Р°РµРј Р°РЅРёРјР°С†РёСЋ РїСЂС‹Р¶РєР°
+            
         }
 
-        // Гравитация
         velocity.y += gravity * Time.deltaTime;
 
-        // Применяем движение
         Vector3 finalMove = currentVelocity * Time.deltaTime;
         finalMove.y = velocity.y * Time.deltaTime;
         controller.Move(finalMove);
 
-        // Попытка начать слайд
         if (isRunning && Input.GetKeyDown(KeyCode.LeftControl) && isGrounded && slideCooldownTimer <= 0f)
         {
             StartSlide(moveDirection);
@@ -145,21 +145,16 @@ public class PlayerMovement : MonoBehaviour
 
     void HandleHorizontalMovement(Vector3 moveDirection, float targetSpeed)
     {
-        // Целевая скорость
         Vector3 targetVelocity = moveDirection * targetSpeed;
 
-        // Определяем, ускоряемся или замедляемся
         bool isAccelerating = moveDirection.magnitude > 0.1f;
         float currentAcceleration = isAccelerating ? acceleration : deceleration;
 
-        // Множитель контроля в воздухе
         float controlMultiplier = isGrounded ? 1f : airControl;
 
-        // Плавно изменяем скорость
         currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity,
-                                            currentAcceleration * controlMultiplier * Time.deltaTime);
+                                                currentAcceleration * controlMultiplier * Time.deltaTime);
 
-        // Если на земле и нет ввода, быстро останавливаемся
         if (isGrounded && moveDirection.magnitude < 0.1f && currentVelocity.magnitude < 0.5f)
         {
             currentVelocity = Vector3.zero;
@@ -170,46 +165,36 @@ public class PlayerMovement : MonoBehaviour
     {
         if (direction.magnitude < 0.1f) return;
 
-        isSliding = true;
+        
         slideTimer = slideDuration;
         slideCooldownTimer = slideCooldown;
 
-        // Сохраняем позицию перед изменением контроллера
         Vector3 positionBeforeChange = transform.position;
 
-        // Изменяем высоту и центр контроллера
         float heightDifference = standHeight - slideHeight;
         controller.height = slideHeight;
 
-        // Корректируем центр так, чтобы сжатие происходило сверху вниз
-        // Смещаем центр вниз на половину разницы высот
         controller.center = new Vector3(0, originalCenter.y - heightDifference / 2f, 0);
 
-        // Восстанавливаем позицию, чтобы компенсировать смещение
         transform.position = positionBeforeChange;
 
-        // Устанавливаем целевую высоту камеры для слайда
         targetCameraHeight = cameraSlideHeight;
 
-        // Для слайда используем текущее направление с большей скоростью
         velocity = direction.normalized * slideSpeed;
         velocity.y = 0f;
 
-        // Также обновляем currentVelocity для плавного перехода
         currentVelocity = velocity;
+         // Р’РєР»СЋС‡Р°РµРј Р°РЅРёРјР°С†РёСЋ СЃР»Р°Р№РґР°
     }
 
     void SlideMove()
     {
-        // В слайде постепенно уменьшаем горизонтальную скорость
         currentVelocity = Vector3.Lerp(currentVelocity, Vector3.zero, Time.deltaTime * 2f);
 
-        // Применяем движение
         Vector3 finalMove = currentVelocity * Time.deltaTime;
         finalMove.y = velocity.y * Time.deltaTime;
         controller.Move(finalMove);
 
-        // Гравитация
         velocity.y += gravity * Time.deltaTime;
 
         slideTimer -= Time.deltaTime;
@@ -223,17 +208,16 @@ public class PlayerMovement : MonoBehaviour
     {
         isSliding = false;
 
-        // Сохраняем позицию перед изменением контроллера
         Vector3 positionBeforeChange = transform.position;
 
-        // Восстанавливаем исходные параметры контроллера
         controller.height = standHeight;
         controller.center = originalCenter;
 
-        // Восстанавливаем позицию
         transform.position = positionBeforeChange;
 
-        // Возвращаем камеру в нормальное положение
         targetCameraHeight = cameraStandHeight;
+         // Р’С‹РєР»СЋС‡Р°РµРј Р°РЅРёРјР°С†РёСЋ СЃР»Р°Р№РґР°
     }
+
+    
 }
