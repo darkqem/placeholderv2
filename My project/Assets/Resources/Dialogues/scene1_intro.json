@@ -1,0 +1,13 @@
+{
+  "dialogues": [
+    {
+      "dialogueID": "scene1_intro",
+      "speaker": "The Voice",
+      "text": "You awaken in a pure white space. No memory, no knowledge...",
+      "typingSpeed": 0.05,
+      "audioClip": "type_slow"
+    }
+  ]
+}
+
+
