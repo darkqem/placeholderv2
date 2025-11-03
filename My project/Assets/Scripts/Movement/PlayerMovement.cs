@@ -150,12 +150,16 @@ public class PlayerMovement : MonoBehaviour
 
         if (ctrlHeld && !isCrouching && isGrounded)
         {
+            animator.SetBool("IsCrouch", true);
             StartCrouch();
+            
         }
         else if (!ctrlHeld && isCrouching)
         {
             if (CanStandUp())
+                animator.SetBool("IsCrouch", false);
                 EndCrouch();
+                
         }
     }
 
