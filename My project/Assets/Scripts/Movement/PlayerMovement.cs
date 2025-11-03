@@ -6,7 +6,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Speed Settings")]
     public float walkSpeed = 4f;
     public float runSpeed = 8f;
-    public float slideSpeed = 10f;
+    public float crouchSpeedMultiplier = 0.5f;
     public float gravity = -20f;
     public float jumpHeight = 1.6f;
 
@@ -17,34 +17,30 @@ public class PlayerMovement : MonoBehaviour
     public float deceleration = 60f;        // Замедление
     public float airControl = 0.3f;         // Контроль в воздухе
 
-    [Header("Slide Settings")]
-    public float slideDuration = 0.7f;      // Длительность слайда
-    public float slideHeight = 1.0f;        // Высота при слайде
-    public float standHeight = 2.0f;        // Стандартная высота
-    public float slideCooldown = 1.0f;      // Кулдаун слайда
+    
 
     [Header("Camera Settings")]
     public Transform cameraTransform;       // Камера
     public float cameraStandHeight = 1.6f;  // Высота камеры в стоячем положении
-    public float cameraSlideHeight = 0.8f;  // Высота камеры при слайде
+    public float cameraCrouchHeight = 1.0f; // Высота камеры при приседе
     public float cameraTransitionSpeed = 5f; // Скорость перехода камеры
 
     [Header("Ground Check")]
     public LayerMask groundMask;
     public float groundCheckDistance = 0.2f;
+    public float standHeight = 2.0f;        // Стандартная высота
+    public float crouchHeight = 1.2f;       // Высота при приседе
 
     private CharacterController controller;
     private Vector3 velocity;
     private Vector3 currentVelocity;        // Текущая скорость
     private bool isGrounded;
-    private bool isSliding = false;
-    private float slideTimer = 0f;
-    private float slideCooldownTimer = 0f;
+    private bool isCrouching = false;
 
-    private Vector3 originalCenter;
-    private float originalHeight;
     private float targetCameraHeight;
     private float currentCameraHeight;
+    private Vector3 originalCenter;
+    private float originalHeight;
 
     public Animator animator;  // Ссылка на Animator
 
@@ -56,9 +52,6 @@ public class PlayerMovement : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        originalHeight = controller.height;
-        originalCenter = controller.center;
-
         if (cameraTransform == null)
         {
             cameraTransform = GetComponentInChildren<Camera>().transform;
@@ -66,6 +59,9 @@ public class PlayerMovement : MonoBehaviour
 
         targetCameraHeight = cameraStandHeight;
         currentCameraHeight = cameraStandHeight;
+
+        originalHeight = controller.height;
+        originalCenter = controller.center;
 
         Vector3 cameraLocalPos = cameraTransform.localPosition;
         cameraLocalPos.y = currentCameraHeight;
@@ -76,13 +72,8 @@ public class PlayerMovement : MonoBehaviour
     {
         GroundCheck();
 
-        if (slideCooldownTimer > 0f)
-            slideCooldownTimer -= Time.deltaTime;
-
-        if (isSliding)
-            SlideMove();
-        else
-            NormalMove();
+        HandleCrouchInput();
+        NormalMove();
 
         UpdateCameraHeight();
     }
@@ -98,14 +89,22 @@ public class PlayerMovement : MonoBehaviour
 
     void GroundCheck()
     {
+        // Raycast-based ground check for more reliable detection
+        // Cast from the bottom of the character controller
+        Vector3 rayOrigin = transform.position + controller.center + Vector3.down * (controller.height / 2f);
+        float rayDistance = groundCheckDistance + controller.skinWidth;
         
-
-        isGrounded = controller.isGrounded;
+        bool raycastHit = Physics.Raycast(rayOrigin, Vector3.down, rayDistance, groundMask);
+        bool controllerGrounded = controller.isGrounded;
+        
+        // Use raycast as primary check, controller as backup
+        isGrounded = raycastHit || controllerGrounded;
+        
         if (isGrounded && velocity.y < 0f)
         {
-            Debug.Log("хуй2");
             velocity.y = -2f;
-            animator.SetBool("IsJumping", false);
+            if (animator != null)
+                animator.SetBool("IsJumping", false);
         }
     }
 
@@ -116,19 +115,24 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 moveDirection = (transform.right * inputX + transform.forward * inputZ).normalized;
 
-        bool isRunning = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        bool isRunning = !isCrouching && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
 
         float targetSpeed = isRunning ? runSpeed : walkSpeed;
+        if (isCrouching) targetSpeed *= crouchSpeedMultiplier;
         float moveSpeed = moveDirection.magnitude * targetSpeed;
-        animator.SetFloat("Speed", moveSpeed);
+        if (animator != null)
+            animator.SetFloat("Speed", moveSpeed);
 
         HandleHorizontalMovement(moveDirection, targetSpeed);
 
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        // Support both Space key and Jump button input
+        bool jumpInput = Input.GetButtonDown("Jump") || Input.GetKeyDown(KeyCode.Space);
+        
+        if (jumpInput && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            animator.SetBool("IsJumping", true);  // Включаем анимацию прыжка
-            
+            if (animator != null)
+                animator.SetBool("IsJumping", true);  // Включаем анимацию прыжка
         }
 
         velocity.y += gravity * Time.deltaTime;
@@ -137,10 +141,60 @@ public class PlayerMovement : MonoBehaviour
         finalMove.y = velocity.y * Time.deltaTime;
         controller.Move(finalMove);
 
-        if (isRunning && Input.GetKeyDown(KeyCode.LeftControl) && isGrounded && slideCooldownTimer <= 0f)
+        
+    }
+
+    void HandleCrouchInput()
+    {
+        bool ctrlHeld = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+        if (ctrlHeld && !isCrouching && isGrounded)
         {
-            StartSlide(moveDirection);
+            StartCrouch();
         }
+        else if (!ctrlHeld && isCrouching)
+        {
+            if (CanStandUp())
+                EndCrouch();
+        }
+    }
+
+    void StartCrouch()
+    {
+        isCrouching = true;
+
+        Vector3 positionBeforeChange = transform.position;
+
+        float heightDifference = originalHeight - crouchHeight;
+        controller.height = crouchHeight;
+        controller.center = new Vector3(controller.center.x, originalCenter.y - heightDifference / 2f, controller.center.z);
+
+        transform.position = positionBeforeChange;
+        targetCameraHeight = cameraCrouchHeight;
+    }
+
+    void EndCrouch()
+    {
+        isCrouching = false;
+
+        Vector3 positionBeforeChange = transform.position;
+
+        controller.height = originalHeight;
+        controller.center = originalCenter;
+
+        transform.position = positionBeforeChange;
+        targetCameraHeight = cameraStandHeight;
+    }
+
+    bool CanStandUp()
+    {
+        // Check for headroom above the controller
+        Vector3 bottom = transform.position + controller.center + Vector3.down * (controller.height / 2f) + Vector3.up * controller.skinWidth;
+        float radius = controller.radius * 0.95f;
+        float castDistance = (originalHeight - controller.height);
+        if (castDistance <= 0f) return true;
+
+        return !Physics.SphereCast(bottom, radius, Vector3.up, out _, castDistance, ~0, QueryTriggerInteraction.Ignore);
     }
 
     void HandleHorizontalMovement(Vector3 moveDirection, float targetSpeed)
@@ -161,63 +215,7 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    void StartSlide(Vector3 direction)
-    {
-        if (direction.magnitude < 0.1f) return;
-
-        
-        slideTimer = slideDuration;
-        slideCooldownTimer = slideCooldown;
-
-        Vector3 positionBeforeChange = transform.position;
-
-        float heightDifference = standHeight - slideHeight;
-        controller.height = slideHeight;
-
-        controller.center = new Vector3(0, originalCenter.y - heightDifference / 2f, 0);
-
-        transform.position = positionBeforeChange;
-
-        targetCameraHeight = cameraSlideHeight;
-
-        velocity = direction.normalized * slideSpeed;
-        velocity.y = 0f;
-
-        currentVelocity = velocity;
-         // Включаем анимацию слайда
-    }
-
-    void SlideMove()
-    {
-        currentVelocity = Vector3.Lerp(currentVelocity, Vector3.zero, Time.deltaTime * 2f);
-
-        Vector3 finalMove = currentVelocity * Time.deltaTime;
-        finalMove.y = velocity.y * Time.deltaTime;
-        controller.Move(finalMove);
-
-        velocity.y += gravity * Time.deltaTime;
-
-        slideTimer -= Time.deltaTime;
-        if (slideTimer <= 0f)
-        {
-            EndSlide();
-        }
-    }
-
-    void EndSlide()
-    {
-        isSliding = false;
-
-        Vector3 positionBeforeChange = transform.position;
-
-        controller.height = standHeight;
-        controller.center = originalCenter;
-
-        transform.position = positionBeforeChange;
-
-        targetCameraHeight = cameraStandHeight;
-         // Выключаем анимацию слайда
-    }
+    
 
     
 }
