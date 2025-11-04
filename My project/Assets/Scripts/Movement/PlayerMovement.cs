@@ -156,7 +156,7 @@ public class PlayerMovement : MonoBehaviour
         }
         else if (!ctrlHeld && isCrouching)
         {
-            if (CanStandUp())
+            
                 animator.SetBool("IsCrouch", false);
                 EndCrouch();
                 
@@ -190,16 +190,7 @@ public class PlayerMovement : MonoBehaviour
         targetCameraHeight = cameraStandHeight;
     }
 
-    bool CanStandUp()
-    {
-        // Check for headroom above the controller
-        Vector3 bottom = transform.position + controller.center + Vector3.down * (controller.height / 2f) + Vector3.up * controller.skinWidth;
-        float radius = controller.radius * 0.95f;
-        float castDistance = (originalHeight - controller.height);
-        if (castDistance <= 0f) return true;
-
-        return !Physics.SphereCast(bottom, radius, Vector3.up, out _, castDistance, ~0, QueryTriggerInteraction.Ignore);
-    }
+    
 
     void HandleHorizontalMovement(Vector3 moveDirection, float targetSpeed)
     {

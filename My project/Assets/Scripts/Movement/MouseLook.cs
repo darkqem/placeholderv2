@@ -25,6 +25,12 @@ public class MouseLook : MonoBehaviour
 
     void Update()
     {
+        // Check if input is blocked (e.g., during dialogue)
+        if (Systems.DialogueInputBlocker.IsInputBlocked)
+        {
+            return; // Stop camera rotation
+        }
+
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 
