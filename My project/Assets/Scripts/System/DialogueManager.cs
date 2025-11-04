@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Systems.Dialogue;
@@ -114,7 +115,32 @@ namespace Systems
                 return;
             }
 
-            Debug.Log($"[DialogueManager] Found dialogue entry: speaker='{entry.speaker}', text length={entry.text.Length}, typingSpeed={entry.typingSpeed}");
+            // Convert legacy format (single text) to new format (lines)
+            if (entry.lines == null || entry.lines.Count == 0)
+            {
+                // Legacy support: convert single text to lines
+                if (!string.IsNullOrEmpty(entry.text))
+                {
+                    entry.lines = new List<DialogueLine>
+                    {
+                        new DialogueLine
+                        {
+                            text = entry.text,
+                            speaker = entry.speaker,
+                            typingSpeed = entry.typingSpeed,
+                            audioClip = entry.audioClip
+                        }
+                    };
+                    Debug.Log("[DialogueManager] Converted legacy dialogue format to new format.");
+                }
+                else
+                {
+                    Debug.LogWarning("[DialogueManager] Dialogue entry has no lines and no legacy text.");
+                    return;
+                }
+            }
+
+            Debug.Log($"[DialogueManager] Found dialogue entry: speaker='{entry.speaker}', lines count={entry.lines.Count}");
             if (running != null) StopCoroutine(running);
             running = StartCoroutine(TypeRoutine(entry));
         }
@@ -124,55 +150,110 @@ namespace Systems
             Debug.Log($"[DialogueManager] TypeRoutine started. OnDialogueStarted has {OnDialogueStarted.GetPersistentEventCount()} persistent listeners (runtime listeners count unavailable).");
             Debug.Log("[DialogueManager] Invoking OnDialogueStarted event.");
             OnDialogueStarted?.Invoke();
-            Debug.Log($"[DialogueManager] Invoking OnSpeakerChanged with: '{entry.speaker}'. OnSpeakerChanged has {OnSpeakerChanged.GetPersistentEventCount()} persistent listeners (runtime listeners count unavailable).");
-            OnSpeakerChanged?.Invoke(entry.speaker);
 
-            StringBuilder sb = new StringBuilder();
-            int tickCounter = 0;
-
-            // Start typing loop sound if provided
-            if (!string.IsNullOrEmpty(entry.audioClip) && AudioManager.Instance != null)
+            // Process each line of dialogue
+            for (int lineIndex = 0; lineIndex < entry.lines.Count; lineIndex++)
             {
-                AudioManager.Instance.PrepareTypingClip(entry.audioClip);
-            }
-
-            foreach (char c in entry.text)
-            {
-                // Check for right mouse button click to skip dialogue
-                if (Input.GetMouseButtonDown(1)) // 1 = right mouse button
+                DialogueLine line = entry.lines[lineIndex];
+                
+                // Wait for event if specified
+                if (!string.IsNullOrEmpty(line.waitForEvent))
                 {
-                    Debug.Log("[DialogueManager] Right mouse button clicked. Skipping dialogue.");
-                    // Show full text immediately
-                    OnTextUpdated?.Invoke(entry.text);
-                    break;
+                    Debug.Log($"[DialogueManager] Waiting for event: {line.waitForEvent}");
+                    yield return StartCoroutine(WaitForEvent(line.waitForEvent));
                 }
 
-                sb.Append(c);
-                OnTextUpdated?.Invoke(sb.ToString());
+                // Determine speaker for this line (use line-specific or fall back to entry default)
+                string currentSpeaker = !string.IsNullOrEmpty(line.speaker) ? line.speaker : entry.speaker;
+                OnSpeakerChanged?.Invoke(currentSpeaker);
 
-                tickCounter++;
-                if (tickCounter % Mathf.Max(1, typingTickEveryNChars) == 0)
+                // Determine typing speed and audio clip (use line-specific or fall back to entry default)
+                float currentTypingSpeed = line.typingSpeed > 0 ? line.typingSpeed : entry.typingSpeed;
+                string currentAudioClip = !string.IsNullOrEmpty(line.audioClip) ? line.audioClip : entry.audioClip;
+
+                // Start typing loop sound if provided
+                if (!string.IsNullOrEmpty(currentAudioClip) && AudioManager.Instance != null)
                 {
-                    if (!string.IsNullOrEmpty(entry.audioClip) && AudioManager.Instance != null)
+                    AudioManager.Instance.PrepareTypingClip(currentAudioClip);
+                }
+
+                StringBuilder sb = new StringBuilder();
+                int tickCounter = 0;
+                bool textSkipped = false;
+
+                // Type out the text character by character
+                foreach (char c in line.text)
+                {
+                    // Check for left mouse button click (LMB) to skip to next line
+                    if (Input.GetMouseButtonDown(0)) // 0 = left mouse button
                     {
-                        AudioManager.Instance.TickType();
+                        Debug.Log("[DialogueManager] Left mouse button clicked. Showing full text.");
+                        // Show full text immediately
+                        OnTextUpdated?.Invoke(line.text);
+                        textSkipped = true;
+                        break;
                     }
+
+                    sb.Append(c);
+                    OnTextUpdated?.Invoke(sb.ToString());
+
+                    tickCounter++;
+                    if (tickCounter % Mathf.Max(1, typingTickEveryNChars) == 0)
+                    {
+                        if (!string.IsNullOrEmpty(currentAudioClip) && AudioManager.Instance != null)
+                        {
+                            AudioManager.Instance.TickType();
+                        }
+                    }
+
+                    yield return new WaitForSeconds(currentTypingSpeed);
                 }
 
-                yield return new WaitForSeconds(entry.typingSpeed);
+                // Wait for left mouse button click to proceed to next line (or close if last line)
+                bool isLastLine = (lineIndex == entry.lines.Count - 1);
+                
+                while (!Input.GetMouseButtonDown(0)) // Wait until left mouse button is clicked
+                {
+                    yield return null;
+                }
+                
+                Debug.Log($"[DialogueManager] Left mouse button clicked. {(isLastLine ? "Closing dialogue." : "Proceeding to next line.")}");
             }
-
-            // Wait for right mouse button click to close dialogue if text is fully displayed
-            while (!Input.GetMouseButtonDown(1)) // Wait until right mouse button is clicked
-            {
-                yield return null;
-            }
-            
-            Debug.Log("[DialogueManager] Right mouse button clicked. Closing dialogue.");
 
             Debug.Log("[DialogueManager] TypeRoutine finished. Invoking OnDialogueFinished event.");
             OnDialogueFinished?.Invoke();
             running = null;
+        }
+
+        private IEnumerator WaitForEvent(string eventName)
+        {
+            bool eventTriggered = false;
+            UnityAction eventHandler = () => { eventTriggered = true; };
+
+            // Subscribe to the event
+            if (EventManager.Instance != null)
+            {
+                EventManager.Instance.SubscribeToEvent(eventName, eventHandler);
+            }
+            else
+            {
+                Debug.LogWarning("[DialogueManager] EventManager.Instance is null! Cannot wait for event.");
+                yield break;
+            }
+
+            // Wait until event is triggered
+            while (!eventTriggered)
+            {
+                yield return null;
+            }
+
+            // Unsubscribe from the event
+            if (EventManager.Instance != null)
+            {
+                EventManager.Instance.UnsubscribeFromEvent(eventName, eventHandler);
+            }
+
+            Debug.Log($"[DialogueManager] Event '{eventName}' was triggered. Continuing dialogue.");
         }
     }
 }

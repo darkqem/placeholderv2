@@ -1,5 +1,9 @@
 sceneSetups:
+<<<<<<< HEAD
 - path: Assets/Scenes/MWeiz_test_scene.unity
+=======
+- path: Assets/Scenes/Level_4.unity
+>>>>>>> 38c66b13017fa4cdd56f4ae23fb16595359327d3
   isLoaded: 1
   isActive: 1
   isSubScene: 0
