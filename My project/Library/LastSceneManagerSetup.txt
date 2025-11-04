@@ -1,6 +1,5 @@
 sceneSetups:
-- path: Assets/Scenes/Birth.unity
-- path: Assets/Scenes/Level_4.unity
+- path: Assets/Scenes/MWeiz_test_scene.unity
   isLoaded: 1
   isActive: 1
   isSubScene: 0
